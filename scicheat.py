@@ -151,12 +151,14 @@ class PrimaryAnalysis:
         plt.title('Feature Importance')
         sns.barplot(x=feat_imp.values.flatten(),
                     y=[x if len(x) < 12 else x[:12] for x in feat_imp.index],
-                    alpha=0.8, palette='deep')
+                    alpha=0.8, ci=None, palette='deep')
         plt.show()
 
     def show_corr(self):
         if self.plot:
-            corr = self.df.corr()
+            temp_df = self.df.copy()
+            temp_df.columns = [x if len(x) < 12 else x[:12] for x in temp_df.columns]
+            corr = temp_df.corr()
             mask = np.zeros_like(corr, dtype=np.bool)
             mask[np.triu_indices_from(mask)] = True
             f, ax = plt.subplots(figsize=(12, 9))
@@ -179,7 +181,11 @@ class PrimaryAnalysis:
             if self.df[i].dtype in ['float64', 'int64']:
                 plt.subplot(rows,4,n)
                 sns.kdeplot(self.df[i], legend=False)
-                plt.title(i)
+                if len(i) > 12:
+                    title = i[:12]
+                else:
+                    title = i
+                plt.title(title)
                 plt.gca().yaxis.set_major_locator(plt.NullLocator())
                 n += 1
         plt.suptitle('KDE Plots', size=14)
@@ -201,8 +207,12 @@ class PrimaryAnalysis:
             if self.df[i].dtype not in ['float64', 'int64']:
                 plt.subplot(rows,3,n)
                 counts = df[i].value_counts()
-                sns.barplot([x if len(x) < 12 else x[:12] for x in counts.index], counts.values, alpha=0.8)
-                plt.title(i)
+                sns.barplot([x if len(x) < 12 else x[:12] for x in counts.index], counts.values, ci=None, alpha=0.8)
+                if len(i) > 12:
+                    title = i[:12]
+                else:
+                    title = i
+                plt.title(title)
                 plt.gca().yaxis.set_major_locator(plt.NullLocator())
                 n += 1
         plt.suptitle('Bar Plots', size=14)
