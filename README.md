@@ -1,2 +1,2 @@
 # scicheat
-Basic analysis for working with a new dataset
+### Basic analytics for working with a new dataset
