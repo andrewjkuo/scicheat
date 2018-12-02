@@ -87,6 +87,8 @@ class PrimaryAnalysis:
         if self.plot:
             plt.figure(figsize=(8,8))
             sns.scatterplot(x=self.y_test.values, y=preds)
+            xy = np.linspace(self.y_test.min(), self.y_test.max(), 2)
+            plt.plot(xy, xy, color='r')
             plt.title('Model Results')
             plt.xlabel('y')
             plt.ylabel('predicted values')
@@ -206,7 +208,7 @@ class PrimaryAnalysis:
         for i in self.df.columns:
             if self.df[i].dtype not in ['float64', 'int64']:
                 plt.subplot(rows,3,n)
-                counts = df[i].value_counts()
+                counts = self.df[i].value_counts()
                 sns.barplot([x if len(x) < 12 else x[:12] for x in counts.index], counts.values, ci=None, alpha=0.8)
                 if len(i) > 12:
                     title = i[:12]
