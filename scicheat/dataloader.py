@@ -21,25 +21,46 @@ class PrimaryAnalysis:
         self.target = target
         self.process = process
         self.plot = plot
+        self.num_cols = []
+        self.cat_cols = []
+        self.ignore_cols = []
 
         self.clean_df()
         self.set_task_type()
         self.tt_split()
 
     def clean_df(self):
+        """
+        Clean dataset and prepare for modelling.
+
+        Separate numerical and categorical variables.
+        Remove variables that require more processing.
+        Delete NAs.
+        """
+
         for col in list(self.in_cols):
             if not self.is_num(col):
-                if self.df[col].nunique() > 8:
+                if self.df[col].nunique() > 9:
                     self.df.drop(col, axis=1, inplace=True)
                     self.in_cols.remove(col)
+                    self.ignore_cols.append(col)
+                else:
+                    self.cat_cols.append(col)
+            else:
+                self.num_cols.append(col)
+        self.drop_row_count = self.df.shape[0] - self.df.dropna().shape[0]
         self.df.dropna(inplace=True)
 
     def is_num(self, cname):
+        """
+        Check if column is numerical or not.
+
+        Columns of type 'int' with fewer than 6 unique values are considered categorical.
+        """
+
         dt = self.df[cname].dtype
-        if dt == 'float64':
-            return True
-        elif dt == 'int64':
-            if self.df[cname].nunique() > 4:
+        if dt in ['float', 'int']:
+            if self.df[cname].nunique() > 5:
                 return True
             else:
                 return False
@@ -47,26 +68,49 @@ class PrimaryAnalysis:
             return False
 
     def set_task_type(self):
+        """
+        Assign model type (regression or classification) based on target variable type.
+
+        If target variable is numerical, the task type is regression.
+        If classification task, task_type is either binclass or multiclass based on number of
+        levels of the target variable.
+        """
+
         if self.is_num(self.target):
+            self.num_cols.append(self.target)
             self.task_type = 'Regression'
         else:
+            self.cat_cols.append(self.target)
             if self.df[self.target].nunique() == 2:
                 self.task_type = 'BinClass'
             else:
                 self.task_type = 'MultiClass'
 
     def one_hot(self):
+        """
+        Convert categorical variables to one hot vectors.
+        """
+
         temp_df = self.df.copy()
-        for col in self.in_cols:
-            if not self.is_num(col):
+        for col in self.cat_cols:
+            if col != self.target:
                 cats = self.df[col].unique()
-                if (len(cats) != 2) or (0 not in cats) or (1 not in cats):
+                if (len(cats) != 2):
                     onehots = pd.get_dummies(temp_df[col], prefix=col, drop_first=True)
                     temp_df = pd.concat([temp_df, onehots], axis=1)
                     del temp_df[col]
+                else:
+                    if (0 not in cats) or (1 not in cats):
+                        onehots = pd.get_dummies(temp_df[col], prefix=col, drop_first=True)
+                        temp_df = pd.concat([temp_df, onehots], axis=1)
+                        del temp_df[col]
         return temp_df
 
     def tt_split(self, one_hot=True):
+        """
+        Split dataset into training and test sets.
+        """
+
         cutoff = int(self.df.shape[0] * 0.75)
         if one_hot:
             temp_df = self.one_hot()
@@ -82,6 +126,10 @@ class PrimaryAnalysis:
         self.y_test = temp_df.iloc[cutoff:][self.target]
 
     def num_eval(self, preds):
+        """
+        Evaluate the results of a regression task.
+        """
+
         rmse = np.sqrt(((preds - self.y_test) ** 2).sum() / self.y_test.shape[0])
         print('\nRMSE:',round(rmse, 3))
         if self.plot:
@@ -95,6 +143,10 @@ class PrimaryAnalysis:
             plt.show()
 
     def class_eval(self, preds, pred_probs):
+        """
+        Evaluate the results of a classification task.
+        """
+
         acc = np.sum(preds == self.y_test) / self.y_test.shape[0]
         print('\nAccuracy:',round(acc, 3))
         if self.task_type == 'BinClass':
@@ -120,6 +172,10 @@ class PrimaryAnalysis:
             print('\nConfusion Matrix:\n',conf)
 
     def fit_lm(self):
+        """
+        Fit linear model to the dataset.
+        """
+
         if self.task_type == 'Regression':
             self.lm = LinearRegression()
             self.lm.fit(self.x_train, self.y_train)
@@ -133,6 +189,10 @@ class PrimaryAnalysis:
             self.class_eval(preds, pred_probs)
 
     def fit_tree(self):
+        """
+        Fit random forest model to the dataset.
+        """
+
         if self.task_type == 'Regression':
             self.rf = RandomForestRegressor()
             self.rf.fit(self.x_train, self.y_train)
@@ -157,6 +217,10 @@ class PrimaryAnalysis:
         plt.show()
 
     def show_corr(self):
+        """
+        Display the correlation matrix for the dataset.
+        """
+
         if self.plot:
             temp_df = self.df.copy()
             temp_df.columns = [x if len(x) < 12 else x[:12] for x in temp_df.columns]
@@ -170,17 +234,19 @@ class PrimaryAnalysis:
             plt.show()
 
     def show_kdes(self):
-        num_cols = [x for x in self.df.columns if self.df[x].dtype in ['float64', 'int64']]
+        """
+        Display KDE plots for all numeric variables in the dataset.
+        """
 
-        if len(num_cols) % 4 == 0:
-            rows = len(num_cols) / 4
-        else:
-            rows = int(len(num_cols) / 4) + 1
+        if len(self.num_cols) > 0:
+            if len(self.num_cols) % 4 == 0:
+                rows = len(self.num_cols) / 4
+            else:
+                rows = int(len(self.num_cols) / 4) + 1
 
-        plt.figure(figsize=(12,2*rows))
-        n = 1
-        for i in self.df.columns:
-            if self.df[i].dtype in ['float64', 'int64']:
+            plt.figure(figsize=(12,2*rows))
+            n = 1
+            for i in self.num_cols:
                 plt.subplot(rows,4,n)
                 sns.kdeplot(self.df[i], legend=False)
                 if len(i) > 12:
@@ -190,49 +256,81 @@ class PrimaryAnalysis:
                 plt.title(title)
                 plt.gca().yaxis.set_major_locator(plt.NullLocator())
                 n += 1
-        plt.suptitle('KDE Plots', size=14)
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.9)
-        plt.show()
+            sup_pos = 1 + (0.07 / rows)
+            plt.suptitle('KDE Plots', y=sup_pos, size=14)
+            plt.tight_layout()
+            plt.subplots_adjust(top=0.9)
+            plt.show()
 
     def show_bars(self):
-        cat_cols = [x for x in self.df.columns if self.df[x].dtype not in ['float64', 'int64']]
+        """
+        Display bar plots for all categorical variables in the dataset.
+        """
 
-        if len(cat_cols) % 3 == 0:
-            rows = len(cat_cols) / 3
-        else:
-            rows = int(len(cat_cols) / 3) + 1
+        if len(self.cat_cols) > 0:
+            if len(self.cat_cols) % 3 == 0:
+                rows = len(self.cat_cols) / 3
+            else:
+                rows = int(len(self.cat_cols) / 3) + 1
 
-        plt.figure(figsize=(12,3*rows))
-        n = 1
-        for i in self.df.columns:
-            if self.df[i].dtype not in ['float64', 'int64']:
+            plt.figure(figsize=(12,3*rows))
+            n = 1
+            for i in self.cat_cols:
                 plt.subplot(rows,3,n)
                 counts = self.df[i].value_counts()
-                sns.barplot([x if len(x) < 12 else x[:12] for x in counts.index], counts.values, ci=None, alpha=0.8)
+                sns.barplot([str(x) if len(str(x)) < 12 else str(x)[:12] for x in counts.index], counts.values, ci=None, alpha=0.8)
                 if len(i) > 12:
                     title = i[:12]
                 else:
                     title = i
+                plt.xticks(rotation=30)
                 plt.title(title)
                 plt.gca().yaxis.set_major_locator(plt.NullLocator())
                 n += 1
-        plt.suptitle('Bar Plots', size=14)
-        plt.tight_layout()
-        plt.subplots_adjust(top=0.9)
-        plt.show()
+            sup_pos = 1 + (0.07 / rows)
+            plt.suptitle('Bar Plots', y=sup_pos, size=14)
+            plt.tight_layout()
+            plt.subplots_adjust(top=0.9)
+            plt.show()
+
+    def print_col_info(self):
+        print('Columns Used:')
+        for col in self.df.columns:
+            print('\t',col)
+        print('Ignored Columns:')
+        for col in self.ignore_cols:
+            print('\t',col)
+
+    def print_row_info(self):
+        print('Rows Removed (NAs): {}'.format(self.drop_row_count))
+        print('Rows Retained: {}'.format(self.df.shape[0]))
+
+    def print_divider(self):
+        print('-'*100)
 
     def run_all(self):
-        print('-'*100)
+        """
+        Run all analysis on the provided dataset.
+
+        This module will generate kde and bar plots for all variables and a correlation matrix.
+        Linear and tree based models are fit to the dataset to get a rough idea of
+        predictability. The random forest model is used to estimate feature importance.
+        """
+
+        self.print_divider()
         print('UNIVARIATE ANALYSIS')
         self.show_kdes()
         self.show_bars()
-        print('-'*100)
+        self.print_divider()
         print('BIVARIATE ANALYSIS')
         self.show_corr()
-        print('-'*100)
+        self.print_divider()
         print('LINEAR MODEL')
         self.fit_lm()
-        print('-'*100)
+        self.print_divider()
         print('RANDOM FOREST MODEL')
         self.fit_tree()
+        self.print_divider()
+        self.print_col_info()
+        self.print_divider()
+        self.print_row_info()
