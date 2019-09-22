@@ -8,9 +8,28 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.metrics import roc_auc_score, confusion_matrix
 
 class PrimaryAnalysis:
-    def __init__(self, df, target, in_cols=None, process=True, plot=True):
+    def __init__(self, df, target=None, in_cols=None):
+        """
+        Primary analysis class that prepares a dataset for EDA and basic modelling.
+
+        Parameters
+        ----------
+        df: pandas dataframe
+            Dataset to be analysed
+
+        target: string, default None
+            Name of the target column (variable to be predicted). If no target
+            specified, the last column will be used.
+
+        in_cols: array-like, default None
+            List of columns to use as inputs. If not specified, all columns will
+            be used (excluding the target)
+        """
 
         sns.set(style='white', context='notebook', font_scale=1.2)
+
+        if target is None:
+            target = df.columns[-1]
 
         if in_cols is None:
             in_cols = list(df.columns)
@@ -19,8 +38,6 @@ class PrimaryAnalysis:
         self.df = df[in_cols + [target]].copy()
         self.in_cols = in_cols.copy()
         self.target = target
-        self.process = process
-        self.plot = plot
         self.num_cols = []
         self.cat_cols = []
         self.ignore_cols = []
@@ -132,15 +149,14 @@ class PrimaryAnalysis:
 
         rmse = np.sqrt(((preds - self.y_test) ** 2).sum() / self.y_test.shape[0])
         print('\nRMSE:',round(rmse, 3))
-        if self.plot:
-            plt.figure(figsize=(8,8))
-            sns.scatterplot(x=self.y_test.values, y=preds)
-            xy = np.linspace(self.y_test.min(), self.y_test.max(), 2)
-            plt.plot(xy, xy, color='r')
-            plt.title('Model Results')
-            plt.xlabel('y')
-            plt.ylabel('predicted values')
-            plt.show()
+        plt.figure(figsize=(8,8))
+        sns.scatterplot(x=self.y_test.values, y=preds)
+        xy = np.linspace(self.y_test.min(), self.y_test.max(), 2)
+        plt.plot(xy, xy, color='r')
+        plt.title('Model Results')
+        plt.xlabel('y')
+        plt.ylabel('predicted values')
+        plt.show()
 
     def class_eval(self, preds, pred_probs):
         """
@@ -158,18 +174,15 @@ class PrimaryAnalysis:
             auc = roc_auc_score(pd.get_dummies(self.y_test), pred_probs, average='micro')
             print('AUC (macro):', round(auc, 3))
         conf = confusion_matrix(self.y_test, preds)
-        if self.plot:
-            labels = self.y_test.unique()
-            cm_df = pd.DataFrame(conf,
-                                 index = [idx for idx in labels],
-                                 columns = [col for col in labels])
-            plt.figure(figsize=(8,6))
-            cmap = sns.color_palette("Blues")
-            sns.heatmap(cm_df, cmap=cmap, annot=True, fmt='')
-            plt.title('Confusion Matrix')
-            plt.show()
-        else:
-            print('\nConfusion Matrix:\n',conf)
+        labels = self.y_test.unique()
+        cm_df = pd.DataFrame(conf,
+                             index = [idx for idx in labels],
+                             columns = [col for col in labels])
+        plt.figure(figsize=(8,6))
+        cmap = sns.color_palette("Blues")
+        sns.heatmap(cm_df, cmap=cmap, annot=True, fmt='')
+        plt.title('Confusion Matrix')
+        plt.show()
 
     def fit_lm(self):
         """
@@ -182,7 +195,7 @@ class PrimaryAnalysis:
             preds = self.lm.predict(self.x_test)
             self.num_eval(preds)
         else:
-            self.lm = LogisticRegression()
+            self.lm = LogisticRegression(solver='liblinear')
             self.lm.fit(self.x_train, self.y_train)
             preds = self.lm.predict(self.x_test)
             pred_probs = self.lm.predict_proba(self.x_test)
@@ -194,12 +207,12 @@ class PrimaryAnalysis:
         """
 
         if self.task_type == 'Regression':
-            self.rf = RandomForestRegressor()
+            self.rf = RandomForestRegressor(n_estimators=100)
             self.rf.fit(self.x_train, self.y_train)
             preds = self.rf.predict(self.x_test)
             self.num_eval(preds)
         else:
-            self.rf = RandomForestClassifier()
+            self.rf = RandomForestClassifier(n_estimators=100)
             self.rf.fit(self.x_train, self.y_train)
             preds = self.rf.predict(self.x_test)
             pred_probs = self.rf.predict_proba(self.x_test)
@@ -221,17 +234,16 @@ class PrimaryAnalysis:
         Display the correlation matrix for the dataset.
         """
 
-        if self.plot:
-            temp_df = self.df.copy()
-            temp_df.columns = [x if len(x) < 12 else x[:12] for x in temp_df.columns]
-            corr = temp_df.corr()
-            mask = np.zeros_like(corr, dtype=np.bool)
-            mask[np.triu_indices_from(mask)] = True
-            f, ax = plt.subplots(figsize=(12, 9))
-            cmap = sns.diverging_palette(10, 240, n=9, as_cmap=True)
-            sns.heatmap(corr, mask=mask, cmap=cmap, center=0, square=True, linewidths=.5, cbar_kws={"shrink": .5})
-            plt.title('Correlations')
-            plt.show()
+        temp_df = self.df.copy()
+        temp_df.columns = [x if len(x) < 12 else x[:12] for x in temp_df.columns]
+        corr = temp_df.corr()
+        mask = np.zeros_like(corr, dtype=np.bool)
+        mask[np.triu_indices_from(mask)] = True
+        f, ax = plt.subplots(figsize=(12, 9))
+        cmap = sns.diverging_palette(10, 240, n=9, as_cmap=True)
+        sns.heatmap(corr, mask=mask, cmap=cmap, center=0, square=True, linewidths=.5, cbar_kws={"shrink": .5})
+        plt.title('Correlations')
+        plt.show()
 
     def show_kdes(self):
         """
@@ -294,9 +306,6 @@ class PrimaryAnalysis:
             plt.show()
 
     def print_col_info(self):
-        print('Columns Used:')
-        for col in self.df.columns:
-            print('\t',col)
         print('Ignored Columns:')
         for col in self.ignore_cols:
             print('\t',col)

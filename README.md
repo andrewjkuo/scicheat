@@ -7,6 +7,10 @@ Basic analytics for working with a new dataset
 * Works best in a Jupyter Notebook environment
 ## Installation
 ```
+pip install scicheat
+```
+OR
+```
 git clone https://github.com/andrewjkuo/scicheat.git
 python setup.py install
 ```
