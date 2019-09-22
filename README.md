@@ -11,7 +11,7 @@ git clone https://github.com/andrewjkuo/scicheat.git
 python setup.py install
 ```
 ## Usage
-* Import the PrimaryAnalysis module
+* Import the PrimaryAnalysis class
 * Load in a pandas dataframe and specify the target variable
 * You can run specific methods or just use run_all()
 ```
@@ -24,6 +24,7 @@ pa.run_all()
 * Error handling
 * Deal with NAs intelligently
 * Deal with dates intelligently
+* Data normalisation
 * Optionally limit rows for speed
 * Hyperparameter tuning
 * Unsupervised analysis
