@@ -9,7 +9,7 @@ setup(
     author='Andrew Kuo',
     packages=['scicheat'],
     install_requires=['matplotlib','numpy','pandas','scikit-learn','seaborn'],
-    version='0.2',
+    version='0.3',
     license='MIT',
     description='A package to help gain quick insights into a new dataset',
     long_description=long_description,

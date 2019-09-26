@@ -184,6 +184,17 @@ class PrimaryAnalysis:
         plt.title('Confusion Matrix')
         plt.show()
 
+    def is_str_num(self, str):
+        """
+        Checks if string is a number.
+        """
+
+        try:
+            float(str)
+            return True
+        except ValueError:
+            return False
+
     def fit_lm(self):
         """
         Fit linear model to the dataset.
@@ -195,7 +206,7 @@ class PrimaryAnalysis:
             preds = self.lm.predict(self.x_test)
             self.num_eval(preds)
         else:
-            self.lm = LogisticRegression(solver='liblinear')
+            self.lm = LogisticRegression(solver='liblinear', max_iter=500, multi_class='auto')
             self.lm.fit(self.x_train, self.y_train)
             preds = self.lm.predict(self.x_test)
             pred_probs = self.lm.predict_proba(self.x_test)
@@ -222,10 +233,14 @@ class PrimaryAnalysis:
                                            columns=['importance']).sort_values('importance', ascending=False)
 
         rows = len(self.x_train.columns)
+
+        # add '_' to numeric column names so seaborn doesn't treat as data
+        ft_imp_ind = [str(x) + '_' if self.is_str_num(str(x)) else str(x) for x in feat_imp.index]
+
         plt.figure(figsize=(8,int(rows/2)+1))
         plt.title('Feature Importance')
         sns.barplot(x=feat_imp.values.flatten(),
-                    y=[x if len(x) < 12 else x[:12] for x in feat_imp.index],
+                    y=[x if len(x) < 12 else x[:12] for x in ft_imp_ind],
                     alpha=0.8, ci=None, palette='deep')
         plt.show()
 
@@ -235,6 +250,9 @@ class PrimaryAnalysis:
         """
 
         temp_df = self.df.copy()
+
+        #limit to top 25 columns of correlation
+        temp_df = temp_df[list(temp_df.corr().abs().sum().sort_values().index)[-25:]]
         temp_df.columns = [x if len(x) < 12 else x[:12] for x in temp_df.columns]
         corr = temp_df.corr()
         mask = np.zeros_like(corr, dtype=np.bool)
