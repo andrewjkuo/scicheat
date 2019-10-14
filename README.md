@@ -32,3 +32,4 @@ pa.run_all()
 * Optionally limit rows for speed
 * Hyperparameter tuning
 * Unsupervised analysis
+* Only show "interesting" visualisations if too many columns
